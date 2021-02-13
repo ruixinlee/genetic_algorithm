@@ -4,6 +4,12 @@ from utils.costs import calculate_costs, calculate_costs_in_stock, print_best
 from utils.constrains import is_unique_recipes
 import random
 
+#TODO: distributed GE
+#TODO: mutation rate and number that decrease with improvement in costs
+#TODO: edge cases - how long until we decide there is no solition?
+#TODO: sampling too equal - sampling can change according to split of stock
+#TODO: edge cases - sum_orders > sum_ stock
+
 def gen_parents(n_orders, recipes_lists, parents_num):
     n = 4
     parent_lists = []
@@ -116,6 +122,6 @@ if __name__ == '__main__':
         print('mutate')
         # print(set([len(i) for r  in parent_lists for i in r]))
         parent_lists = mutate_gene(parent_lists, mutation_rate, n_orders, recipes_lists, mutation_counts)
-        # print_best(parent_lists[0], portion_orders, all_stocks)
+        print_best(parent_lists[0], portion_orders, all_stocks)
 
 print('test')
