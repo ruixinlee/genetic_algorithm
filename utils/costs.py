@@ -15,9 +15,9 @@ def calculate_costs_in_stock(recipes_orders, portion_orders, all_stocks):
         for (i,j) in zip(s,t):
             sum_stocks[i]+=j
 
-    is_within_stock = [sum_stocks[k] <= v for (k, v) in all_stocks.items()]
+    is_within_stock = [min(v-sum_stocks[k],0)  for (k, v) in all_stocks.items()]
 
-    return -sum(is_within_stock)
+    return sum(is_within_stock)
 
 def print_best(recipes_orders, portion_orders, all_stocks):
     all_stocks = {s[0]:s[1] for s in all_stocks}

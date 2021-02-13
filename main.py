@@ -68,8 +68,11 @@ def strongest_children(parent_lists,n_parents,  portion_orders, all_stocks):
 
     n_parents = min(n_parents, len(parent_lists))
     children_costs = [calculate_costs_in_stock(p,  portion_orders, all_stocks) for p in parent_lists]
-    sorted_parents_lists = [i for _,i in zip(children_costs,parent_lists)]
+    sorted_parents_lists = [i for _,i in sorted(zip(children_costs,parent_lists), reverse=True)]
     sorted_parents_lists =sorted_parents_lists[:n_parents]
+
+    if calculate_costs_in_stock(sorted_parents_lists[0],portion_orders, all_stocks )< calculate_costs_in_stock(sorted_parents_lists[-1],portion_orders, all_stocks ):
+        print('test')
 
     print(f'best- {calculate_costs_in_stock(sorted_parents_lists[0],portion_orders, all_stocks )}, worst {calculate_costs_in_stock(sorted_parents_lists[-1],portion_orders, all_stocks)}')
     return sorted_parents_lists
@@ -95,15 +98,15 @@ if __name__ == '__main__':
 
     num_iteration = 1000
     parents_num = 100
-    n_child = 100
+    n_child = 1000
     mutation_rate = 0.3
-    mutation_counts = int(n_orders*0.2)
+    mutation_counts = int(n_orders*0.3)
 
     parent_lists = gen_parents(n_orders, recipes_lists, parents_num)
     for i in range(50):
         print('find surviving children')
         # print(set([len(i) for r  in parent_lists for i in r]))
-        parent_lists = survive_children(parent_lists,portion_orders)
+        # parent_lists = survive_children(parent_lists,portion_orders)
         print('find strongest_children')
         # print(set([len(i) for r  in parent_lists for i in r]))
         parent_lists = strongest_children(parent_lists, parents_num, portion_orders, all_stocks)
@@ -113,6 +116,6 @@ if __name__ == '__main__':
         print('mutate')
         # print(set([len(i) for r  in parent_lists for i in r]))
         parent_lists = mutate_gene(parent_lists, mutation_rate, n_orders, recipes_lists, mutation_counts)
-        print_best(parent_lists[0], portion_orders, all_stocks)
+        # print_best(parent_lists[0], portion_orders, all_stocks)
 
 print('test')
