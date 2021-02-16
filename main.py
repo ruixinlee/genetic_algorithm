@@ -98,7 +98,10 @@ if __name__ == '__main__':
 
     recipes_orders, portion_orders = init_orders(orders)
     all_stocks = init_stock(stocks) # these are constraints
+    stock_levels = [i[1] for i in all_stocks]
     recipes_lists = [s[0] for s in all_stocks]
+    all_recipes_lists = [[s[0]]*s[1] for s in all_stocks]
+    all_recipes_lists = [s for k in all_recipes_lists for s in k]
     n_orders = len(recipes_orders)
 
 
