@@ -8,24 +8,25 @@ def calculate_costs(all_orders, total_stock):
 
 
 def calculate_costs_in_stock(recipes_orders, portion_orders, all_stocks):
-    all_stocks = {s[0]:s[1] for s in all_stocks}
-    sum_stocks = {k:0 for k in all_stocks.keys()}
-
-    for s,t in zip(recipes_orders, portion_orders):
-        for (i,j) in zip(s,t):
-            sum_stocks[i]+=j
-
+    sum_stocks = cal_current_stock(recipes_orders, portion_orders, all_stocks)
+    all_stocks = {vk: vv for _, v in all_stocks.items() for vd in v for vk, vv in vd.items()}
     is_within_stock = [min(v-sum_stocks[k],0)  for (k, v) in all_stocks.items()]
 
     return sum(is_within_stock)
 
-def print_best(recipes_orders, portion_orders, all_stocks):
-    all_stocks = {s[0]:s[1] for s in all_stocks}
-    sum_stocks = {k:0 for k in all_stocks.keys()}
 
-    for s,t in zip(recipes_orders, portion_orders):
-        for (i,j) in zip(s,t):
-            sum_stocks[i]+=j
+def cal_current_stock(recipes_orders, portion_orders, all_stocks):
+    sum_stocks = {vk: 0  for _, v in all_stocks.items() for vd in v for vk, _ in vd.items()}  #crazy list comprehension to save time otherwise not recommend
+    for k, v in recipes_orders.items():
+        for s,t in zip(recipes_orders[k], portion_orders[k]):
+            for (i,j) in zip(s,t):
+                sum_stocks[i]+=j
+    return sum_stocks
+
+
+def print_best(recipes_orders, portion_orders, all_stocks):
+    sum_stocks = cal_current_stock(recipes_orders, portion_orders, all_stocks)  #crazy list comprehension to save time otherwise not recommend
+    all_stocks = {vk:vv  for _, v in all_stocks.items() for vd in v for vk,vv in vd.items()}
 
     print(sum_stocks)
     print(all_stocks)

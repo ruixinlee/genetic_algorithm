@@ -1,10 +1,14 @@
 
 def is_unique_recipes(recipes_orders, portion_orders ):
+    is_unique =[]
 
     #filter the recipe numbers
-    recipes =[ [i for (i, j) in zip(s, t) if j >0 ] for s,t in zip(recipes_orders, portion_orders)]
+
+    for k,v in recipes_orders.items():
+        recipes =[ [i for (i, j) in zip(s, t) if j >0 ] for s,t in zip(v, portion_orders[k])]
     #check if each one order has unique recipues
-    is_unique = [len(set(s)) == len(s) for s in recipes]
+        uniq = [len(set(s)) == len(s) for s in recipes]
+        is_unique.append(uniq)
 
     return all(is_unique)
 

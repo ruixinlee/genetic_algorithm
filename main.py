@@ -10,17 +10,29 @@ import random
 #TODO: sampling too equal - sampling can change according to split of stock
 #TODO: edge cases - sum_orders > sum_ stock
 
-def gen_parents(n_orders, recipes_lists, parents_num):
-    n = 4
+def gen_parents(all_stocks, parents_num):
+    max_recipe = 4
+    recipes_lists = {k:[list(i.keys())[0] for i in v] for k,v in all_stocks.items()}
+    recipes_lists['gourmet'] = recipes_lists['vegetarian'] + recipes_lists['gourmet']
     parent_lists = []
-    for c in range(parents_num):
-        parent = [random.sample(recipes_lists,n) for i in range(n_orders)]
+
+
+    for n in range(parents_num):
+        parent = {}
+        for k,v in recipes_orders.items():
+            if k == 'vegetarian':
+                n_orders = len(recipes_orders[k])
+                parent[k] = [random.sample(recipes_lists[k],max_recipe) for i in range(n_orders)]
+            if k == 'gourmet':
+                n_orders = len(recipes_orders[k])
+                parent[k] = [random.sample(recipes_lists[k], max_recipe) for i in range(n_orders)]
+
         parent_lists.append(parent)
 
     return parent_lists
 
 
-def cross_gene(parent_lists,n_child,n_orders):
+def cross_gene(parent_lists,n_child):
 
     mom_list = random.choices(parent_lists,k =n_child)
     dad_list = random.choices(parent_lists,k =n_child)
@@ -29,59 +41,58 @@ def cross_gene(parent_lists,n_child,n_orders):
     for ichild in range(n_child):
         dad = dad_list[ichild]
         mom = mom_list[ichild]
-        dad_gene = random.choices(binary, k = n_orders)
-        child = [dad[i] if dad_gene[i] ==1 else mom[i]  for i in range(n_orders)]
+        child = {}
+        for k,v in dad.items():
+            n_orders = len(v)
+            dad_gene = random.choices(binary, k = n_orders)
+            child[k] = [dad[k][i] if dad_gene[i] ==1 else mom[k][i]  for i in range(n_orders)]
         children_list.append(child)
     return children_list
 
-def mutate_gene(parent_lists, mutation_rate, n_orders, recipes_lists, mutation_counts):
+def mutate_gene(parent_lists, mutation_rate, all_stocks, n_orders,mutation_counts):
+    max_recipe = 4
     n_parents = len(parent_lists)
 
+    recipes_lists = {k: [list(i.keys())[0] for i in v] for k, v in all_stocks.items()}
+    recipes_lists['gourmet'] = recipes_lists['vegetarian'] + recipes_lists['gourmet']
     binary = [0,1]
     cumulative_w = [1-mutation_rate, 1]
-    if_mutate = random.choices(binary,cum_weights=cumulative_w, k=n_parents)
-
-    total_mutates = sum(if_mutate)*mutation_counts
-    mutate_locs = random.choices(range(n_orders), k=total_mutates)
-    mutate_locs = [mutate_locs[i:i+mutation_counts] for i in range(0,total_mutates,mutation_counts)]
-
-    new_genes =[]
-    for k in range(total_mutates):
-        new_genes.append(random.sample(recipes_lists, k=4))
-
-    new_genes = [new_genes[i:i + mutation_counts] for i in range(0, total_mutates, mutation_counts)]
-
-    if_mutate_iter = iter(if_mutate)
-    mutate_loc_iter = iter(mutate_locs)
-    mutate_gene_iter = iter(new_genes)
+    is_mutate_parent = random.choices(binary,cum_weights=cumulative_w, k=n_parents)
 
     mutated_parents_lists = []
-    for p in parent_lists:
-        if next(if_mutate_iter) == 1:
-            mutate_loc = next(mutate_loc_iter)
-            new_gene = next(mutate_gene_iter)
-            for mi, mj in enumerate(mutate_loc):
-                p[mj]= new_gene[mi]
 
-        mutated_parents_lists.append(p)
+    for is_mutate, parent in zip(is_mutate_parent,parent_lists):
+        if is_mutate:
+            for k,v in parent.items():
+                n_orders = len(v)
+                mutate_locs = random.choices(range(n_orders), k=mutation_counts)
+                mutated_gene = random.choices(recipes_lists[k],  k=mutation_counts*max_recipe)
+                mutated_gene = [mutated_gene[i:i+max_recipe] for i in range(0,mutation_counts*max_recipe,max_recipe)]
+
+                for ml, mg in zip(mutate_locs, mutated_gene):
+                    v[ml] = mg
+
+                parent[k] = v
+        mutated_parents_lists.append(parent)
     return mutated_parents_lists
 
 def survive_children(parent_lists, portion_orders):
-    parent_lists = [p for p in parent_lists if is_unique_recipes(p, portion_orders)]
+    #TODO: check if veg only get veg
+    parent_lists = [parent for parent in parent_lists if is_unique_recipes(parent, portion_orders)]
+
     return parent_lists
 
 def strongest_children(parent_lists,n_parents,  portion_orders, all_stocks):
 
     n_parents = min(n_parents, len(parent_lists))
-    children_costs = [calculate_costs_in_stock(p,  portion_orders, all_stocks) for p in parent_lists]
-    sorted_parents_lists = [i for _,i in sorted(zip(children_costs,parent_lists), reverse=True)]
-    sorted_parents_lists =sorted_parents_lists[:n_parents]
 
-    if calculate_costs_in_stock(sorted_parents_lists[0],portion_orders, all_stocks )< calculate_costs_in_stock(sorted_parents_lists[-1],portion_orders, all_stocks ):
-        print('test')
+    parents_lists = sorted(parent_lists, key = lambda i: calculate_costs_in_stock(i,  portion_orders, all_stocks),reverse=True)
 
-    print(f'best- {calculate_costs_in_stock(sorted_parents_lists[0],portion_orders, all_stocks )}, worst {calculate_costs_in_stock(sorted_parents_lists[-1],portion_orders, all_stocks)}')
-    return sorted_parents_lists
+    parents_lists =parents_lists[:n_parents]
+
+
+    print(f'best- {calculate_costs_in_stock(parents_lists[0],portion_orders, all_stocks )}, worst {calculate_costs_in_stock(parents_lists[-1],portion_orders, all_stocks)}')
+    return parents_lists
 
 
 if __name__ == '__main__':
@@ -91,18 +102,9 @@ if __name__ == '__main__':
     with open('.\\data\\defaults_orders.json', 'r') as f:
         orders = json.load(f)
 
-
-
-    orders = orders['vegetarian']
-    stocks = {i: k for i, k in stocks.items() if k['box_type'] == 'vegetarian'}
-
     recipes_orders, portion_orders = init_orders(orders)
     all_stocks = init_stock(stocks) # these are constraints
-    stock_levels = [i[1] for i in all_stocks]
-    recipes_lists = [s[0] for s in all_stocks]
-    all_recipes_lists = [[s[0]]*s[1] for s in all_stocks]
-    all_recipes_lists = [s for k in all_recipes_lists for s in k]
-    n_orders = len(recipes_orders)
+    n_orders = sum([len(v) for k,v in recipes_orders.items()])
 
 
     num_iteration = 1000
@@ -111,20 +113,20 @@ if __name__ == '__main__':
     mutation_rate = 0.3
     mutation_counts = int(n_orders*0.3)
 
-    parent_lists = gen_parents(n_orders, recipes_lists, parents_num)
+    parent_lists = gen_parents(all_stocks, parents_num)
     for i in range(50):
         print('find surviving children')
         # print(set([len(i) for r  in parent_lists for i in r]))
-        # parent_lists = survive_children(parent_lists,portion_orders)
+        parent_lists = survive_children(parent_lists,portion_orders)
         print('find strongest_children')
         # print(set([len(i) for r  in parent_lists for i in r]))
         parent_lists = strongest_children(parent_lists, parents_num, portion_orders, all_stocks)
         print('breed')
         # print(set([len(i) for r  in parent_lists for i in r]))
-        parent_lists = cross_gene(parent_lists, n_child, n_orders)
+        parent_lists = cross_gene(parent_lists, n_child)
         print('mutate')
         # print(set([len(i) for r  in parent_lists for i in r]))
-        parent_lists = mutate_gene(parent_lists, mutation_rate, n_orders, recipes_lists, mutation_counts)
+        parent_lists = mutate_gene(parent_lists, mutation_rate, all_stocks, n_orders,mutation_counts)
         print_best(parent_lists[0], portion_orders, all_stocks)
 
 print('test')
