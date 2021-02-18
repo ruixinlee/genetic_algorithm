@@ -1,6 +1,7 @@
 import json
 import random
 from datetime import datetime
+import time
 
 class RecipeAllocation:
 
@@ -9,7 +10,7 @@ class RecipeAllocation:
         self.parents_num    = parents_num
         self.n_child        = n_child
         self.mutation_rate  = mutation_rate
-        self.search_steps   = 20
+        self.search_stop   = 5
 
         self.max_recipe = 4
         self.stock = None
@@ -20,6 +21,7 @@ class RecipeAllocation:
         self.recipes_orders = None  #all orders in recipes
         self.portion_orders = None  #all orders in portions
         self.n_orders = None
+        self.is_feasible = None
 
         self.parent_lists = None
         self.feasible_parent = None
@@ -32,10 +34,22 @@ class RecipeAllocation:
         :param stocks:path of the json file for stock
         :return:
         """
-        with open(stocks_json, 'r') as f:
-            self.stocks = json.load(f)
+
         with open(orders_json, 'r') as f:
             self.orders = json.load(f)
+
+        with open(stocks_json, 'r') as f:
+            self.stocks = json.load(f)
+
+        ## check if recipes types are compatibles
+        try:
+            order_types = list(self.orders.keys())
+            stock_types = list(set([v['box_type'] for v in self.stocks.values()]))
+            is_available = [i not in stock_types for i in order_types]
+            if any(is_available):
+                raise Exception('Error: incompatible recipes types')
+        except Exception as e:
+            self.log(str(e))
 
         self.log('loaded jsons')
 
@@ -44,7 +58,7 @@ class RecipeAllocation:
 
     def log(self,text):
         with open('./data/log.txt', 'a') as f:
-            f.write(text + '/n')
+            f.write(text + '\n')
 
     def init_orders(self):
         # TODO test sum is equal
@@ -138,13 +152,13 @@ class RecipeAllocation:
         parent_lists = self.parent_lists
         mutation_rate = self.mutation_rate
         max_recipe = self.max_recipe
-        n_parents = self.n_parents
+        parents_num = self.parents_num
         recipes_lists = self.recipes_lists
 
         mutation_counts = int(self.n_orders * self.mutation_rate)
         binary = [0, 1]
         cumulative_w = [1 - mutation_rate, 1]
-        is_mutate_parent = random.choices(binary, cum_weights=cumulative_w, k=n_parents)
+        is_mutate_parent = random.choices(binary, cum_weights=cumulative_w, k=parents_num)
 
         mutated_parents_lists = []
 
@@ -176,22 +190,25 @@ class RecipeAllocation:
     def strongest_children(self):
 
         parent_lists    = self.parent_lists
-        n_parents       = self.n_parents
+        parents_num       = self.parents_num
         portion_orders  = self.portion_orders
         all_stocks      = self.all_stocks
-        n_parents       = min(n_parents, len(parent_lists))
+        n_parents       = min(parents_num, len(parent_lists))
 
-        parents_lists = sorted(parent_lists, key=lambda i: self.__class__.calculate_costs_in_stock(i, portion_orders, all_stocks),
+        parent_lists = sorted(parent_lists, key=lambda i: self.__class__.calculate_costs_in_stock(i, portion_orders, all_stocks),
                                reverse=True)
 
-        parents_lists = parents_lists[:n_parents]
+        parent_lists = parent_lists[:n_parents]
 
         print(
-            f'best- { self.__class__.calculate_costs_in_stock(parents_lists[0], portion_orders, all_stocks)}, worst { self.__class__.calculate_costs_in_stock(parents_lists[-1], portion_orders, all_stocks)}')
-        self.parents_lists = parents_lists
+            f'best- { self.__class__.calculate_costs_in_stock(parent_lists[0], portion_orders, all_stocks)}, worst { self.__class__.calculate_costs_in_stock(parent_lists[-1], portion_orders, all_stocks)}')
+        self.parent_lists = parent_lists
+        print(
+            f'best- { self.__class__.calculate_costs_in_stock(self.parent_lists[0], portion_orders, all_stocks)}, worst { self.__class__.calculate_costs_in_stock(self.parent_lists[-1], portion_orders, all_stocks)}')
 
     def search_feasibility(self):
 
+        tic = time.time()
         self.generate_parents()
         self.survive_children()
         self.strongest_children()
@@ -203,7 +220,9 @@ class RecipeAllocation:
             print('breed')
             # print(set([len(i) for r  in parent_lists for i in r]))
             self.cross_gene()
+            self.strongest_children()
             self.mutate_gene()
+            self.strongest_children()
             self.survive_children()
             self.strongest_children()
 
@@ -211,23 +230,27 @@ class RecipeAllocation:
             worst_parent = self.parent_lists[-1]
             best_parent_costs = self.__class__.calculate_costs_in_stock(best_parent, self.portion_orders, self.all_stocks )
             worst_parent_costs = self.__class__.calculate_costs_in_stock(worst_parent, self.portion_orders, self.all_stocks )
-            best_stock_level = self.__class__.cal_current_stock(best_parent)
-            generation += 0
+            best_stock_level = self.__class__.cal_current_stock(best_parent, self.portion_orders, self.all_stocks)
+            generation += 1
 
             cost_paths.append(best_parent_costs)
-            if len(cost_paths>50):
-                cost_paths_mov = [j-1 for i,j in zip(cost_paths[:-1], cost_paths[1:])]
+            if len(cost_paths)> self.search_stop:
+                cost_paths_mov = [j-i for i,j in zip(cost_paths[:-1], cost_paths[1:])]
                 which_constant = [1 if i <= 0 else 0 for i in cost_paths_mov]
+                print(which_constant)
 
-            self.log(f'creating generation {generation}')
+                if sum(which_constant[self.search_stop:]) == self.search_stop:
+                    self.log(f'no feasible solution found, costs remain constant for {self.search_stop} steps')
+                    self.is_feasible = False
+                    return self.is_feasible
+            toc = time.time()
+            self.log(f'created generation {generation} in {toc - tic} seconds')
             self.log(f'best parent has cost {best_parent_costs}, worst parent has cost {worst_parent_costs}')
             self.log(f'best parent stock level is:   {best_stock_level}')
             self.log(f'current stock level is:       {self.all_stocks_flatten}')
             self.log(' ')
 
-            if sum(which_constant[self.search_steps:]) == self.search_steps:
-                self.log(f'no feasible solution found, costs remain constant for {self.search_steps} steps')
-                return False
+
 
 
 
@@ -236,15 +259,13 @@ class RecipeAllocation:
                 self.log(f'feasible solution found, cost is {best_parent_costs}')
                 self.log(f'current stock level is   {self.all_stocks_flatten}')
                 self.log(f'feasible stock level is  {best_stock_level}')
-
+                self.is_feasible = True
                 return True
 
 
 
     @classmethod
-    def is_unique_recipes(cls, recipes_orders):
-
-        portion_orders= cls.portion_orders
+    def is_unique_recipes(cls, recipes_orders, portion_orders):
         is_unique = []
 
         # filter the recipe numbers
@@ -279,9 +300,8 @@ class RecipeAllocation:
         return sum(is_within_stock)
 
     @classmethod
-    def cal_current_stock(cls,recipes_orders):
-        portion_orders = cls.portion_orders
-        all_stocks = cls.all_stocks
+    def cal_current_stock(cls,recipes_orders, portion_orders,all_stocks):
+
         sum_stocks = {vk: 0 for _, v in all_stocks.items() for vd in v for vk, _ in
                       vd.items()}  # crazy list comprehension to save time otherwise not recommend
         for k, v in recipes_orders.items():
@@ -289,3 +309,15 @@ class RecipeAllocation:
                 for (i, j) in zip(s, t):
                     sum_stocks[i] += j
         return sum_stocks
+
+if __name__ == '__main__':
+
+    stock_path = '.\\data\\defaults_stocks.json'
+    orders_path = '.\\data\\defaults_orders.json'
+
+    Feas = RecipeAllocation()
+    Feas.load(orders_path,stock_path)
+    is_feasible = Feas.search_feasibility()
+
+    print('test')
+
