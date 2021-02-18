@@ -57,6 +57,7 @@ class RecipeAllocation:
         self.init_stocks()  # these are constraints
 
     def log(self,text):
+        print(text)
         with open('./data/log.txt', 'a') as f:
             f.write(text + '\n')
 
@@ -201,10 +202,8 @@ class RecipeAllocation:
         parent_lists = parent_lists[:n_parents]
 
         print(
-            f'best- { self.__class__.calculate_costs_in_stock(parent_lists[0], portion_orders, all_stocks)}, worst { self.__class__.calculate_costs_in_stock(parent_lists[-1], portion_orders, all_stocks)}')
+            f'best profit- { self.__class__.calculate_costs_in_stock(self.parent_lists[0], portion_orders, all_stocks)}, worst { self.__class__.calculate_costs_in_stock(self.parent_lists[-1], portion_orders, all_stocks)}')
         self.parent_lists = parent_lists
-        print(
-            f'best- { self.__class__.calculate_costs_in_stock(self.parent_lists[0], portion_orders, all_stocks)}, worst { self.__class__.calculate_costs_in_stock(self.parent_lists[-1], portion_orders, all_stocks)}')
 
     def search_feasibility(self):
 
@@ -217,8 +216,7 @@ class RecipeAllocation:
         cost_paths = []
 
         while True:
-            print('breed')
-            # print(set([len(i) for r  in parent_lists for i in r]))
+
             self.cross_gene()
             self.strongest_children()
             self.mutate_gene()
@@ -237,12 +235,13 @@ class RecipeAllocation:
             if len(cost_paths)> self.search_stop:
                 cost_paths_mov = [j-i for i,j in zip(cost_paths[:-1], cost_paths[1:])]
                 which_constant = [1 if i <= 0 else 0 for i in cost_paths_mov]
-                print(which_constant)
+                self.log(f'is the solution worse off than the present one? : {which_constant}')
 
-                if sum(which_constant[self.search_stop:]) == self.search_stop:
+                if sum(which_constant[-self.search_stop:]) == self.search_stop:
                     self.log(f'no feasible solution found, costs remain constant for {self.search_stop} steps')
                     self.is_feasible = False
                     return self.is_feasible
+
             toc = time.time()
             self.log(f'created generation {generation} in {toc - tic} seconds')
             self.log(f'best parent has cost {best_parent_costs}, worst parent has cost {worst_parent_costs}')
@@ -261,8 +260,6 @@ class RecipeAllocation:
                 self.log(f'feasible stock level is  {best_stock_level}')
                 self.is_feasible = True
                 return True
-
-
 
     @classmethod
     def is_unique_recipes(cls, recipes_orders, portion_orders):
