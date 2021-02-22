@@ -1,4 +1,4 @@
-##Recipe Allocation algorithm
+## Recipe Allocation algorithm
 
 1. The entry point in main.py
 2. log.txt is in data/log.txt
